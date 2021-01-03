@@ -1,0 +1,115 @@
+---
+title: "Football Analytics Exercise #2"
+output: html_notebook
+---
+1. Make sure you have loaded the tidyverse package
+```{r}
+library(tidyverse)
+```
+
+2. Import the play-by-play files. Name them pbp_2016, pbp_2017, and pbp_2018 respectively. Make sure you import these files into your working directory. 
+
+```{r}
+pbp_2016 <- read_csv("reg_pbp_2016.csv")
+pbp_2017 <- read_csv("reg_pbp_2017.csv")
+pbp_2018 <- read_csv("reg_pbp_2018.csv")
+```
+
+3. Now we're going to merge the three files by using the rbind() function. This will stack all the rows together. This is possible since all three data frames have the same number of columns (and are named identically). Call this pbp_total
+
+```{r}
+pbp_total <- rbind(pbp_2016, pbp_2017, pbp_2018)
+```
+
+4. Next, we're going to aggregate the data by game_id and posteam (possession team). We are going to conisider the following: Total_pass_plays, Total_rush_plays, Total_pass_yards, Total_rush_yards,Total_pass_EPA, Total_rush_EPA, Total_pass_WPA, Total_rush_WPA. Store this as a table called Reg_season_metrics. 
+
+
+```{r}
+Reg_season_metrics <- pbp_total %>% 
+                        filter(!is.na(play_type) & !is.na(posteam) & !is.na(epa) & !is.na(wpa)) %>%
+                        group_by(game_id, posteam) %>%
+                        summarize(Total_pass_plays = sum(play_type == "pass"),
+                                  Total_rush_plays = sum(play_type == "run"),
+                                  Total_pass_yards = sum(yards_gained[play_type == "pass"]),
+                                  Total_rush_yards = sum(yards_gained[play_type == "run"]),
+                                  Total_pass_EPA = sum(epa[play_type == "pass"]),
+                                  Total_rush_EPA = sum(epa[play_type == "run"]),
+                                  Total_pass_WPA = sum(wpa[play_type == "pass"]),
+                                  Total_rush_WPA = sum(wpa[play_type == "run"]))
+
+```
+
+5. Next, we going to import regular season game files that contain the final score. Let this be reg_game_2016, reg_game_2017, and reg_game_2018 respectively. Make sure you import these files in your working directory. 
+
+```{r}
+reg_game_2016 <- read_csv("reg_games_2016.csv")
+reg_game_2017 <- read_csv("reg_games_2017.csv")
+reg_game_2018 <- read_csv("reg_games_2018.csv")
+```
+
+6. Next, we're going to merge the three data frames using rbind() and call the new data frame reg_game_total
+
+```{r}
+reg_game_total <- rbind(reg_game_2016, reg_game_2017, reg_game_2018)
+```
+
+
+7. Now, we will join the Reg_season_metrics table with the reg_game_total files. We will use a left join to accomplish this. We will call this Metrics_games
+
+```{r}
+Metrics_games <- Reg_season_metrics %>% right_join(reg_game_total, by = "game_id")
+```
+
+8. Next, we will identify the points scored and allowed by each team and indicate the result. 
+
+```{r}
+Metrics_games %>% 
+  mutate(points_scored = ifelse(posteam == home_team, home_score, away_score),
+         points_allowed = ifelse(posteam == home_team, away_score, home_score),
+         point_diff = points_scored - points_allowed,
+         result = ifelse(point_diff > 0, "W", 
+                  ifelse(point_diff < 0, "L", "D"))) -> Metrics_games
+```
+
+9. Next, we will aggregate each team by season. 
+
+```{r}
+Metrics_games %>%
+  group_by(posteam, season) %>%
+  summarize(Total_pass_plays = sum(Total_pass_plays),
+            Total_rush_plays = sum(Total_rush_plays),
+            Total_pass_yards = sum(Total_pass_yards),
+            Total_rush_yards = sum(Total_rush_yards),
+            Total_pass_EPA = sum(Total_pass_EPA),
+            Total_rush_EPA = sum(Total_rush_EPA),
+            Total_pass_WPA = sum(Total_pass_WPA),
+            Total_rush_WPA = sum(Total_rush_WPA),
+            Total_points_scored = sum(points_scored),
+            Total_points_allowed = sum(points_allowed),
+            Total_point_differential = Total_points_scored - Total_points_allowed,
+            Total_wins = sum(result == "W")) -> Metrics_season
+
+Metrics_season <- Metrics_season %>% unite("season_team",c("posteam", "season"), remove = F)
+            
+```
+
+10. Let's find the correlation matrix for all numeric variables. 
+
+
+```{r}
+Metrics_season <- as.tibble(Metrics_season)
+Metrics_season %>% 
+  select_if(is.numeric) %>%
+  select(-season)
+```
+
+**Your turn** 
+
+11. Try to add the following metrics: Total pass yards allowed, Total rush yards allowed, Total pass EPA allowed, Total rush EPA allowed, Total pass WPA allowed, Total rush WPA allowed. 
+
+12. Add these new variables to the correlation matrix. 
+
+
+
+
+

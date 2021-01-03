@@ -1,0 +1,93 @@
+---
+title: "Football Analytics Exercise #1"
+output: html_notebook
+---
+1. The following packages are required for this exercise. 
+```{r}
+library(tidyverse)
+library(ggridges)
+```
+
+
+
+
+2. Import data for 2016 NFL season. Make sure the file is in your working directory. 
+
+
+```{r}
+pbp_2016 <- read_csv("reg_pbp_2016.csv")
+
+```
+
+
+3. The code below produces a table that identifies all rushers with at least 200 rushers and shows their total yards and average yards per carry. This also examines the top 10 in terms of total rushing yards. 
+
+```{r}
+min_rush_cnt <- 200
+rush_filter <- pbp_2016 %>% filter(play_type == 'run') %>%
+  group_by(rusher_player_name) %>% 
+  summarise(rush_cnt = n(),
+            total_yards = sum(yards_gained),
+            mean_yards = round(mean(yards_gained), 2)) %>%
+  filter(rush_cnt >= min_rush_cnt) %>%
+  arrange(desc(total_yards)) %>%
+  head(10) 
+```
+
+4. The code below summarizes all rushing outcomes for the players who met the threshold above:
+
+```{r}
+rushing_stats <- pbp_2016 %>%
+  filter(play_type == 'run' & rusher_player_name %in% rush_filter$rusher_player_name) %>%
+  filter(!is.na(run_location))
+
+rushing_stats %>% 
+  group_by(rusher_player_name) %>%
+  summarize(mean_carry = round(mean(yards_gained), 1),
+            median_carry = median(yards_gained),
+            stdev = round(sd(yards_gained),1),
+            min_carry = min(yards_gained),
+            max_carry = max(yards_gained)) %>%
+  arrange(desc(mean_carry))
+  
+```
+
+
+5. The code below generates all the rushing outcomes in terms of yards gained, but filters out 4th down, and carries of greater than 50 yards. 
+
+
+```{r}
+rushing_stats <- pbp_2016 %>%
+  filter(play_type == 'run' & rusher_player_name %in% rush_filter$rusher_player_name & yards_gained <=50) %>%
+  filter(down!=4 & !is.na(down)) %>%
+  filter(!is.na(run_location))
+
+rushing_stats %>%
+  group_by(rusher_player_name) %>%
+  summarize(mean_carry = round(mean(yards_gained), 1),
+            median_carry = median(yards_gained),
+            stdev = round(sd(yards_gained),1)) %>%
+  arrange(desc(mean_carry))
+```
+
+
+6. The code below generates a "density ridges" plot that shows the distribution of rushes for each of the qualifying rushers. 
+
+
+
+```{r}
+ggplot(rushing_stats, aes(x = yards_gained, y = rusher_player_name, fill=rusher_player_name)) +
+  geom_density_ridges(scale = 3) +
+  scale_fill_manual(values=rep(c('gray', 'lightblue'), length(rushing_stats$rusher_player_name)/2)) +
+  scale_y_discrete(expand = c(0.01, 0)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme(legend.position="none") +
+  labs(x="Yards gained per play" ,y="")
+```
+  
+  **Your turn**
+  
+7. Repeat this procedure for the 2017 and 2018 seasons. 
+  
+8. Are there any rushers who have been consitently in this top 10 group for all seasons?
+  
